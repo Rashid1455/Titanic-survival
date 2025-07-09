@@ -1,0 +1,96 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# Title of the Streamlit app
+st.title("Titanic Survival Prediction")
+
+# File uploader for the Titanic dataset
+st.sidebar.header("Upload Titanic Dataset (CSV)")
+file = st.sidebar.file_uploader("Choose a CSV file", type=["csv"])
+
+if file is not None:
+    # Load the dataset
+    data = pd.read_csv(file)
+    
+    # Display the first few rows of the dataset
+    st.write("Dataset Overview:")
+    st.write(data.head())
+
+    # Step 1: Data Preprocessing
+    st.subheader("Data Preprocessing")
+
+    # Check for missing values
+    missing_values = data.isnull().sum()
+    st.write("Missing values before cleaning:")
+    st.write(missing_values)
+
+    # Handle missing values
+    data['Age'].fillna(data['Age'].mean(), inplace=True)  # Fill missing 'Age' with the mean
+    data['Embarked'].fillna(data['Embarked'].mode()[0], inplace=True)  # Fill missing 'Embarked' with the mode
+
+    # Check if 'Embarked' still has missing values
+    missing_values_after = data.isnull().sum()
+    st.write("Missing values after cleaning:")
+    st.write(missing_values_after)
+
+    # Drop unnecessary columns ('Name', 'Ticket', 'Cabin') for simplicity
+    data.drop(columns=['Name', 'Ticket', 'Cabin'], inplace=True)
+
+    # Convert categorical columns into numeric values using Label Encoding
+    le = LabelEncoder()
+    data['Sex'] = le.fit_transform(data['Sex'])  # Male = 1, Female = 0
+    data['Embarked'] = le.fit_transform(data['Embarked'])  # Convert Embarked (C, Q, S) to numeric values
+
+    # Step 2: Define Features and Target
+    X = data.drop('Survived', axis=1)  # Features (all columns except 'Survived')
+    y = data['Survived']  # Target variable
+
+    # Step 3: Split the data into training and testing sets (80% train, 20% test)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Step 4: Standardize the features (optional but helpful for some models)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Step 5: Train a Random Forest Classifier
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+
+    # Step 6: Make predictions on the test set
+    y_pred = model.predict(X_test)
+
+    # Step 7: Evaluate the model
+    accuracy = accuracy_score(y_test, y_pred)
+    st.subheader(f"Accuracy: {accuracy:.2f}")
+
+    # Confusion Matrix
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    st.write("Confusion Matrix:")
+    st.write(conf_matrix)
+
+    # Classification Report
+    class_report = classification_report(y_test, y_pred)
+    st.subheader("Classification Report:")
+    st.text(class_report)
+
+    # Generate a report button
+    if st.button('Generate Report'):
+        # Save the report content into a variable
+        report_content = f"Accuracy: {accuracy:.2f}\n\n"
+        report_content += f"Confusion Matrix:\n{conf_matrix}\n\n"
+        report_content += f"Classification Report:\n{class_report}"
+
+        # Offer the report as a downloadable file
+        st.download_button(
+            label="Download Report",
+            data=report_content,
+            file_name="titanic_report.txt",
+            mime="text/plain"
+        )
+        st.success("Report is ready for download!")
